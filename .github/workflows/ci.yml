@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm run check
+      - name: Verify public MCP discovery
+        run: |
+          node <<'NODE'
+          const response = await fetch('https://getminds.ai/mcp', {
+            method: 'POST',
+            headers: {
+              Accept: 'application/json, text/event-stream',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              id: 1,
+              method: 'initialize',
+              params: {
+                protocolVersion: '2025-06-18',
+                capabilities: {},
+                clientInfo: { name: 'minds-action-ci', version: '1.0.0' },
+              },
+            }),
+          });
+          if (!response.ok) throw new Error(`MCP initialize failed: ${response.status}`);
+          if (!response.headers.get('mcp-session-id')) throw new Error('Missing Mcp-Session-Id');
+          NODE

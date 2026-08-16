@@ -1,0 +1,77 @@
+name: "Minds Research Review"
+description: "Plan or run reviewable synthetic market research from a GitHub workflow."
+author: "Minds"
+
+branding:
+  icon: "users"
+  color: "yellow"
+
+inputs:
+  api-key:
+    description: "Minds API key stored as a GitHub Actions secret."
+    required: true
+  operation:
+    description: "One of list-groups, plan-study, ask-group, get-panel-status, or get-panel-summary."
+    required: false
+    default: "plan-study"
+  endpoint:
+    description: "Minds MCP endpoint."
+    required: false
+    default: "https://getminds.ai/mcp"
+  group-id:
+    description: "Exact Minds Group UUID."
+    required: false
+  group-name:
+    description: "Minds Group name for fuzzy matching."
+    required: false
+  panel-id:
+    description: "Exact Minds Panel UUID."
+    required: false
+  panel-name:
+    description: "Minds Panel name for fuzzy matching."
+    required: false
+  request:
+    description: "Research objective and requested questions for plan-study."
+    required: false
+  question:
+    description: "Exact respondent-visible question for ask-group."
+    required: false
+  stimulus:
+    description: "Exact respondent-visible text to evaluate during plan-study."
+    required: false
+  stimulus-file:
+    description: "Workspace-relative UTF-8 file containing respondent-visible text."
+    required: false
+  stimulus-label:
+    description: "Human-readable label for the stimulus."
+    required: false
+  study-locale:
+    description: "Study language: en, es, fr, de, zh, tr, ar, ja, or ko."
+    required: false
+  search-query:
+    description: "Optional fuzzy filter for list-groups."
+    required: false
+  refresh-summary:
+    description: "Generate or refresh a panel summary."
+    required: false
+    default: "false"
+  summary-length:
+    description: "Panel summary length: short, standard, or detailed."
+    required: false
+    default: "standard"
+
+outputs:
+  result-json:
+    description: "The complete JSON-safe MCP tool result."
+  panel-id:
+    description: "Panel UUID returned or resolved by the operation, when present."
+  draft-plan-id:
+    description: "Study draft UUID returned by plan-study, when present."
+  revision:
+    description: "Study draft revision returned by plan-study, when present."
+  workspace-url:
+    description: "Minds workspace or result URL, when present."
+
+runs:
+  using: "node24"
+  main: "src/main.mjs"
