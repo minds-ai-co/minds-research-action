@@ -7,17 +7,17 @@ The action can:
 
 - list saved research audiences;
 - prepare a non-executing structured study plan for review;
-- ask one existing Group a respondent-visible question;
-- retrieve Panel progress; and
-- retrieve or refresh a Panel summary in the GitHub job summary.
+- ask one existing Audience a respondent-visible question;
+- retrieve Study progress; and
+- retrieve or refresh a Study summary in the GitHub job summary.
 
 `plan-study` is the default operation. It prepares a draft and does not start a
-study. `ask-group` starts a private one-Group Panel and consumes the connected
-Minds account's allowance.
+study. `ask-audience` starts a private one-Audience Study and consumes the
+connected Minds account's allowance.
 
 ## Quick start
 
-Create a Minds API key under **Settings, API Keys**, then save it as the
+Create a Minds API key (`minds_…`) under **Settings → API Keys**, then save it as the
 `MINDS_API_KEY` repository or organization secret.
 
 ```yaml
@@ -35,7 +35,7 @@ jobs:
         with:
           api-key: ${{ secrets.MINDS_API_KEY }}
           operation: plan-study
-          panel-id: ${{ vars.MINDS_PANEL_ID }}
+          study-id: ${{ vars.MINDS_STUDY_ID }}
           request: >-
             Prepare a concept test covering clarity, relevance, objections,
             credibility, and concrete improvements.
@@ -50,7 +50,7 @@ written to the GitHub job summary.
 
 ## Ask an existing audience
 
-The `ask-group` operation starts asynchronous research. Keep the question free
+The `ask-audience` operation starts asynchronous research. Keep the question free
 of workflow or model instructions because it is respondent-visible.
 
 ```yaml
@@ -58,31 +58,40 @@ of workflow or model instructions because it is respondent-visible.
   uses: minds-ai-co/minds-research-action@v1
   with:
     api-key: ${{ secrets.MINDS_API_KEY }}
-    operation: ask-group
-    group-name: European B2B SaaS founders
+    operation: ask-audience
+    audience-name: European B2B SaaS founders
     question: >-
       Review this positioning statement. What is clear, what is not credible,
       and what would make you consider a demo?
 
-- run: echo "Panel ${{ steps.minds.outputs.panel-id }} was submitted"
+- run: echo "Study ${{ steps.minds.outputs.study-id }} was submitted"
 ```
 
-Use a later workflow invocation with `get-panel-status` or `get-panel-summary`
+Use a later workflow invocation with `get-study-status` or `get-study-summary`
 to retrieve the durable result.
 
 ## Operations
 
-| Operation           | Required inputs                        | Effect                                           |
-| ------------------- | -------------------------------------- | ------------------------------------------------ |
-| `list-groups`       | none                                   | Lists the authenticated account's saved Groups.  |
-| `plan-study`        | `panel-id` or `panel-name`, `request`  | Creates a reviewable draft without executing it. |
-| `ask-group`         | `group-id` or `group-name`, `question` | Starts a private asynchronous one-Group Panel.   |
-| `get-panel-status`  | `panel-id` or `panel-name`             | Returns composition and current progress.        |
-| `get-panel-summary` | `panel-id` or `panel-name`             | Reads or refreshes the semantic summary.         |
+| Operation           | MCP tool               | Required inputs                              | Effect                                              |
+| ------------------- | ---------------------- | -------------------------------------------- | --------------------------------------------------- |
+| `list-audiences`    | `list_audiences`       | none                                         | Lists the authenticated account's saved Audiences.  |
+| `plan-study`        | `plan_study_questions` | `study-id` or `study-name`, `request`        | Creates a reviewable draft without executing it.    |
+| `ask-audience`      | `ask_audience`         | `audience-id` or `audience-name`, `question` | Starts a private asynchronous one-Audience Study.   |
+| `get-study-status`  | `get_study_status`     | `study-id` or `study-name`                   | Returns composition and current progress.           |
+| `get-study-summary` | `get_study_summary`    | `study-id` or `study-name`                   | Reads or refreshes the semantic summary.            |
 
-The action intentionally does not expose `run_panel_study` in version 1. A
+The action intentionally does not expose `run_study_questions` in version 1. A
 structured study must be confirmed against an exact stored draft revision, and
 that consequential confirmation should remain an explicit human decision.
+
+### Deprecated names
+
+Workflows written for earlier v1 releases keep working. The operations
+`list-groups`, `ask-group`, `get-panel-status` and `get-panel-summary` map to
+the operations above, the inputs `group-id`/`group-name` and
+`panel-id`/`panel-name` map to `audience-*` and `study-*`, and the `panel-id`
+output carries the same value as `study-id`. New workflows should use the
+Audience and Study names.
 
 ## Inputs
 

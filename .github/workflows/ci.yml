@@ -17,6 +17,8 @@ jobs:
         with:
           node-version: 24
       - run: npm run check
+      - name: Verify called MCP tools are on the live surface
+        run: npm run check:mcp-tools
       - name: Verify public MCP discovery
         run: |
           node <<'NODE'

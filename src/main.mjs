@@ -1,5 +1,6 @@
 import { appendFile, readFile, stat } from "node:fs/promises";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
 import { McpClient, extractMarkdown, findValue } from "./mcp-client.mjs";
 
@@ -65,71 +66,103 @@ async function loadStimulus() {
   };
 }
 
-function panelSelector() {
-  const panelId = input("PANEL-ID");
-  const panelName = input("PANEL-NAME");
-  if (panelId && panelName)
-    throw new Error("Use panel-id or panel-name, not both");
-  if (!panelId && !panelName)
-    throw new Error("panel-id or panel-name is required for this operation");
-  return panelId ? { panelId } : { panelName };
+// Legacy inputs (panel-*, group-*) and operation names stay accepted so pinned
+// v1 workflows keep working; they map onto the canonical Study/Audience fields.
+const LEGACY_OPERATIONS = {
+  "list-groups": "list-audiences",
+  "ask-group": "ask-audience",
+  "get-panel-status": "get-study-status",
+  "get-panel-summary": "get-study-summary",
+};
+
+function pickTarget(idInputs, nameInputs) {
+  const id = idInputs.map(input).find(Boolean) || "";
+  const name = nameInputs.map(input).find(Boolean) || "";
+  const [idName, nameName] = [idInputs[0], nameInputs[0]].map((value) =>
+    value.toLowerCase(),
+  );
+  if (id && name) throw new Error(`Use ${idName} or ${nameName}, not both`);
+  if (!id && !name)
+    throw new Error(`${idName} or ${nameName} is required for this operation`);
+  return id ? { id } : { name };
 }
 
-function groupSelector() {
-  const groupId = input("GROUP-ID");
-  const groupName = input("GROUP-NAME");
-  if (groupId && groupName)
-    throw new Error("Use group-id or group-name, not both");
-  if (!groupId && !groupName)
-    throw new Error("group-id or group-name is required for ask-group");
-  return groupId ? { groupId } : { groupName };
+function studyTarget() {
+  return pickTarget(["STUDY-ID", "PANEL-ID"], ["STUDY-NAME", "PANEL-NAME"]);
 }
 
-async function buildCall(operation) {
+function audienceTarget() {
+  return pickTarget(
+    ["AUDIENCE-ID", "GROUP-ID"],
+    ["AUDIENCE-NAME", "GROUP-NAME"],
+  );
+}
+
+export function canonicalOperation(operation) {
+  return LEGACY_OPERATIONS[operation] || operation;
+}
+
+export async function buildCall(requestedOperation) {
+  const operation = canonicalOperation(requestedOperation);
   switch (operation) {
-    case "list-groups": {
+    case "list-audiences": {
       const searchQuery = input("SEARCH-QUERY");
-      return { tool: "list_groups", args: searchQuery ? { searchQuery } : {} };
+      return {
+        tool: "list_audiences",
+        args: searchQuery ? { searchQuery } : {},
+      };
     }
     case "plan-study": {
-      const args = { ...panelSelector(), request: required("REQUEST") };
+      const args = { study: studyTarget(), request: required("REQUEST") };
       const locale = input("STUDY-LOCALE");
-      if (locale) args.studyLocale = locale;
+      if (locale) args.policy = { studyLocale: locale };
       const stimulus = await loadStimulus();
       if (stimulus) {
-        args.source = {
-          kind: "prompt",
-          label: stimulus.label,
-          content: stimulus.content,
+        args.stimulus = {
+          source: {
+            kind: "prompt",
+            label: stimulus.label,
+            content: stimulus.content,
+          },
         };
       }
-      return { tool: "plan_panel_study", args };
+      return { tool: "plan_study_questions", args };
     }
-    case "ask-group":
+    case "ask-audience":
       return {
-        tool: "ask_group",
-        args: { ...groupSelector(), question: required("QUESTION") },
+        tool: "ask_audience",
+        args: { audience: audienceTarget(), question: required("QUESTION") },
       };
-    case "get-panel-status":
-      return { tool: "get_panel_status", args: panelSelector() };
-    case "get-panel-summary": {
+    case "get-study-status":
+      return { tool: "get_study_status", args: { study: studyTarget() } };
+    case "get-study-summary": {
       const length = input("SUMMARY-LENGTH") || "standard";
       if (!["short", "standard", "detailed"].includes(length)) {
         throw new Error("summary-length must be short, standard, or detailed");
       }
       return {
-        tool: "get_panel_summary",
+        tool: "get_study_summary",
         args: {
-          ...panelSelector(),
+          study: studyTarget(),
           refresh: booleanInput("REFRESH-SUMMARY"),
           length,
         },
       };
     }
     default:
-      throw new Error(`Unsupported operation: ${operation}`);
+      throw new Error(`Unsupported operation: ${requestedOperation}`);
   }
 }
+
+const STUDY_ID_KEYS = ["studyId", "study_id", "panelId", "panel_id"];
+const WORKSPACE_URL_KEYS = [
+  "workspaceUrl",
+  "workspace_url",
+  "studyUrl",
+  "study_url",
+  "panelUrl",
+  "panel_url",
+];
 
 function resultForOutput(result) {
   const serialized = JSON.stringify(result);
@@ -142,15 +175,10 @@ async function writeSummary(operation, tool, result) {
   const summaryPath = process.env.GITHUB_STEP_SUMMARY;
   if (!summaryPath) return;
   const markdown = extractMarkdown(result);
-  const panelId = findValue(result, ["panelId", "panel_id"]);
-  const workspaceUrl = findValue(result, [
-    "workspaceUrl",
-    "workspace_url",
-    "panelUrl",
-    "panel_url",
-  ]);
+  const studyId = findValue(result, STUDY_ID_KEYS);
+  const workspaceUrl = findValue(result, WORKSPACE_URL_KEYS);
   let body = `# Minds research review\n\n- Operation: \`${operation}\`\n- MCP tool: \`${tool}\`\n`;
-  if (panelId) body += `- Panel ID: \`${panelId}\`\n`;
+  if (studyId) body += `- Study ID: \`${studyId}\`\n`;
   if (workspaceUrl && /^https:\/\//.test(workspaceUrl))
     body += `- [Open the result in Minds](${workspaceUrl})\n`;
   body += "\n";
@@ -164,36 +192,41 @@ async function writeSummary(operation, tool, result) {
   await appendFile(summaryPath, body, "utf8");
 }
 
-try {
+async function run() {
   const apiKey = required("API-KEY");
   mask(apiKey);
-  const operation = input("OPERATION") || "plan-study";
+  const operation = canonicalOperation(input("OPERATION") || "plan-study");
   const endpoint = input("ENDPOINT") || "https://getminds.ai/mcp";
   const { tool, args } = await buildCall(operation);
   const client = new McpClient({ endpoint, apiKey });
   await client.initialize();
   const result = await client.callTool(tool, args);
 
+  const studyId = findValue(result, STUDY_ID_KEYS);
   const values = {
     "result-json": resultForOutput(result),
-    "panel-id": findValue(result, ["panelId", "panel_id"]),
+    "study-id": studyId,
+    // Deprecated alias of study-id, kept for v1 workflows.
+    "panel-id": studyId,
     "draft-plan-id": findValue(result, ["draftPlanId", "draft_plan_id"]),
     revision: findValue(result, ["revision"]),
-    "workspace-url": findValue(result, [
-      "workspaceUrl",
-      "workspace_url",
-      "panelUrl",
-      "panel_url",
-    ]),
+    "workspace-url": findValue(result, WORKSPACE_URL_KEYS),
   };
   await Promise.all(
     Object.entries(values).map(([name, value]) => setOutput(name, value)),
   );
   await writeSummary(operation, tool, result);
   console.log(`Minds operation ${operation} completed with ${tool}.`);
-} catch (error) {
-  process.stderr.write(
-    `::error::${String(error.message || error).replace(/\r?\n/g, "%0A")}\n`,
-  );
-  process.exitCode = 1;
+}
+
+// Run only as the action entry point, so tests can import buildCall.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    await run();
+  } catch (error) {
+    process.stderr.write(
+      `::error::${String(error.message || error).replace(/\r?\n/g, "%0A")}\n`,
+    );
+    process.exitCode = 1;
+  }
 }

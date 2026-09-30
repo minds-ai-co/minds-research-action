@@ -9,6 +9,7 @@
   },
   "scripts": {
     "test": "node --test",
-    "check": "node --check src/main.mjs && node --check src/mcp-client.mjs && node --test"
+    "check": "node --check src/main.mjs && node --check src/mcp-client.mjs && node --check scripts/check-mcp-tools.mjs && node --test",
+    "check:mcp-tools": "node scripts/check-mcp-tools.mjs"
   }
 }
