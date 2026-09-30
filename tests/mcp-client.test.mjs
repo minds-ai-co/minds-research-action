@@ -28,7 +28,7 @@ test("initializes and calls an MCP tool with a bearer key", async () => {
     ),
     new Response("", { status: 202 }),
     new Response(
-      '{"jsonrpc":"2.0","id":2,"result":{"structuredContent":{"groups":[]}}}',
+      '{"jsonrpc":"2.0","id":2,"result":{"structuredContent":{"audiences":[]}}}',
       {
         status: 200,
       },
@@ -43,11 +43,11 @@ test("initializes and calls an MCP tool with a bearer key", async () => {
     },
   });
   await client.initialize();
-  const result = await client.callTool("list_groups", {});
-  assert.deepEqual(result.structuredContent.groups, []);
+  const result = await client.callTool("list_audiences", {});
+  assert.deepEqual(result.structuredContent.audiences, []);
   assert.equal(requests[0].options.headers.Authorization, "Bearer minds_test");
   assert.equal(requests[2].options.headers["Mcp-Session-Id"], "session-1");
-  assert.equal(JSON.parse(requests[2].options.body).params.name, "list_groups");
+  assert.equal(JSON.parse(requests[2].options.body).params.name, "list_audiences");
 });
 
 test("rejects non-HTTPS endpoints", () => {
@@ -64,9 +64,9 @@ test("rejects non-HTTPS endpoints", () => {
 test("finds nested output values", () => {
   const result = {
     structuredContent: {
-      panel: { panelId: "panel-1", workspaceUrl: "https://example.test" },
+      study: { studyId: "study-1", workspaceUrl: "https://example.test" },
     },
   };
-  assert.equal(findValue(result, ["panelId"]), "panel-1");
+  assert.equal(findValue(result, ["studyId"]), "study-1");
   assert.equal(findValue(result, ["workspaceUrl"]), "https://example.test");
 });

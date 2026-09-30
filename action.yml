@@ -11,30 +11,42 @@ inputs:
     description: "Minds API key stored as a GitHub Actions secret."
     required: true
   operation:
-    description: "One of list-groups, plan-study, ask-group, get-panel-status, or get-panel-summary."
+    description: "One of list-audiences, plan-study, ask-audience, get-study-status, or get-study-summary. Deprecated aliases list-groups, ask-group, get-panel-status and get-panel-summary still work."
     required: false
     default: "plan-study"
   endpoint:
     description: "Minds MCP endpoint."
     required: false
     default: "https://getminds.ai/mcp"
+  audience-id:
+    description: "Exact Minds Audience UUID."
+    required: false
+  audience-name:
+    description: "Minds Audience name for fuzzy matching."
+    required: false
+  study-id:
+    description: "Exact Minds Study UUID."
+    required: false
+  study-name:
+    description: "Minds Study name for fuzzy matching."
+    required: false
   group-id:
-    description: "Exact Minds Group UUID."
+    description: "Deprecated alias of audience-id."
     required: false
   group-name:
-    description: "Minds Group name for fuzzy matching."
+    description: "Deprecated alias of audience-name."
     required: false
   panel-id:
-    description: "Exact Minds Panel UUID."
+    description: "Deprecated alias of study-id."
     required: false
   panel-name:
-    description: "Minds Panel name for fuzzy matching."
+    description: "Deprecated alias of study-name."
     required: false
   request:
     description: "Research objective and requested questions for plan-study."
     required: false
   question:
-    description: "Exact respondent-visible question for ask-group."
+    description: "Exact respondent-visible question for ask-audience."
     required: false
   stimulus:
     description: "Exact respondent-visible text to evaluate during plan-study."
@@ -49,22 +61,24 @@ inputs:
     description: "Study language: en, es, fr, de, zh, tr, ar, ja, or ko."
     required: false
   search-query:
-    description: "Optional fuzzy filter for list-groups."
+    description: "Optional fuzzy filter for list-audiences."
     required: false
   refresh-summary:
-    description: "Generate or refresh a panel summary."
+    description: "Generate or refresh a Study summary."
     required: false
     default: "false"
   summary-length:
-    description: "Panel summary length: short, standard, or detailed."
+    description: "Study summary length: short, standard, or detailed."
     required: false
     default: "standard"
 
 outputs:
   result-json:
     description: "The complete JSON-safe MCP tool result."
+  study-id:
+    description: "Study UUID returned or resolved by the operation, when present."
   panel-id:
-    description: "Panel UUID returned or resolved by the operation, when present."
+    description: "Deprecated alias of study-id (same value)."
   draft-plan-id:
     description: "Study draft UUID returned by plan-study, when present."
   revision:
